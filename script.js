@@ -31,7 +31,26 @@ function initSliderVideoPlayback() {
     return;
   }
 
-  const ACTIVE_THRESHOLD = 0.72;
+  const ACTIVE_THRESHOLD = 0.55;
+
+  const warmupVideos = () => {
+    const allVideos = sliders.flatMap((slider) => Array.from(slider.querySelectorAll("video")));
+    if (allVideos.length === 0) {
+      return;
+    }
+
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    const isSlowConnection =
+      Boolean(connection && connection.saveData) ||
+      Boolean(connection && /(^|slow-)?2g/.test(String(connection.effectiveType || "")));
+
+    allVideos.forEach((video) => {
+      video.preload = isSlowConnection ? "metadata" : "auto";
+      if (video.readyState < 2) {
+        video.load();
+      }
+    });
+  };
 
   const getVisibleRatio = (targetRect, rootRect) => {
     const overlapX = Math.max(
@@ -98,6 +117,17 @@ function initSliderVideoPlayback() {
   window.addEventListener("resize", syncAll);
   document.addEventListener("visibilitychange", syncAll);
   window.addEventListener("load", syncAll, { once: true });
+  window.addEventListener(
+    "load",
+    () => {
+      if ("requestIdleCallback" in window) {
+        window.requestIdleCallback(warmupVideos, { timeout: 1500 });
+      } else {
+        window.setTimeout(warmupVideos, 250);
+      }
+    },
+    { once: true },
+  );
   requestAnimationFrame(syncAll);
 }
 
