@@ -63,35 +63,6 @@ function initSliderVideoPlayback() {
     });
   };
 
-  const setupVideoPosterFallback = (video) => {
-    const poster = video.getAttribute("poster");
-    const container = video.parentElement;
-    if (!poster || !container || container.querySelector(".video-poster-fallback")) {
-      return;
-    }
-
-    const fallback = document.createElement("img");
-    fallback.className = "video-poster-fallback";
-    fallback.src = poster;
-    fallback.alt = "";
-    fallback.setAttribute("aria-hidden", "true");
-    fallback.decoding = "async";
-    fallback.loading = "eager";
-    container.appendChild(fallback);
-
-    const syncFallback = () => {
-      const hasVideoFrame = video.readyState >= 2;
-      fallback.classList.toggle("is-hidden", hasVideoFrame);
-    };
-
-    video.addEventListener("loadeddata", syncFallback);
-    video.addEventListener("canplay", syncFallback);
-    video.addEventListener("stalled", syncFallback);
-    video.addEventListener("waiting", syncFallback);
-    video.addEventListener("emptied", syncFallback);
-    syncFallback();
-  };
-
   const getVisibleRatio = (targetRect, rootRect) => {
     const overlapX = Math.max(
       0,
@@ -176,7 +147,6 @@ function initSliderVideoPlayback() {
       video.muted = true;
       video.playsInline = true;
       video.pause();
-      setupVideoPosterFallback(video);
     });
     slider.addEventListener("scroll", syncAll, { passive: true });
   });
