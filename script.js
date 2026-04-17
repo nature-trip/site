@@ -32,6 +32,7 @@ function initSliderVideoPlayback() {
   }
 
   const ACTIVE_THRESHOLD = 0.55;
+  const pendingPlay = new WeakSet();
 
   const preloadPosters = () => {
     const posterUrls = new Set();
@@ -62,6 +63,35 @@ function initSliderVideoPlayback() {
     });
   };
 
+  const setupVideoPosterFallback = (video) => {
+    const poster = video.getAttribute("poster");
+    const container = video.parentElement;
+    if (!poster || !container || container.querySelector(".video-poster-fallback")) {
+      return;
+    }
+
+    const fallback = document.createElement("img");
+    fallback.className = "video-poster-fallback";
+    fallback.src = poster;
+    fallback.alt = "";
+    fallback.setAttribute("aria-hidden", "true");
+    fallback.decoding = "async";
+    fallback.loading = "eager";
+    container.appendChild(fallback);
+
+    const syncFallback = () => {
+      const hasVideoFrame = video.readyState >= 2;
+      fallback.classList.toggle("is-hidden", hasVideoFrame);
+    };
+
+    video.addEventListener("loadeddata", syncFallback);
+    video.addEventListener("canplay", syncFallback);
+    video.addEventListener("stalled", syncFallback);
+    video.addEventListener("waiting", syncFallback);
+    video.addEventListener("emptied", syncFallback);
+    syncFallback();
+  };
+
   const getVisibleRatio = (targetRect, rootRect) => {
     const overlapX = Math.max(
       0,
@@ -74,6 +104,35 @@ function initSliderVideoPlayback() {
     const overlapArea = overlapX * overlapY;
     const targetArea = Math.max(targetRect.width * targetRect.height, 1);
     return overlapArea / targetArea;
+  };
+
+  const playWhenReady = (video) => {
+    const tryPlay = () => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+      const playPromise = video.play();
+      if (playPromise && typeof playPromise.catch === "function") {
+        playPromise.catch(() => {});
+      }
+    };
+
+    if (video.readyState >= 2) {
+      tryPlay();
+      return;
+    }
+
+    if (!pendingPlay.has(video)) {
+      pendingPlay.add(video);
+      const onReady = () => {
+        pendingPlay.delete(video);
+        tryPlay();
+      };
+      video.addEventListener("loadeddata", onReady, { once: true });
+      video.addEventListener("canplay", onReady, { once: true });
+      video.preload = "auto";
+      video.load();
+    }
   };
 
   const syncSlider = (slider) => {
@@ -101,10 +160,7 @@ function initSliderVideoPlayback() {
         bestRatio >= ACTIVE_THRESHOLD;
 
       if (shouldPlay) {
-        const playPromise = video.play();
-        if (playPromise && typeof playPromise.catch === "function") {
-          playPromise.catch(() => {});
-        }
+        playWhenReady(video);
       } else {
         video.pause();
       }
@@ -120,6 +176,7 @@ function initSliderVideoPlayback() {
       video.muted = true;
       video.playsInline = true;
       video.pause();
+      setupVideoPosterFallback(video);
     });
     slider.addEventListener("scroll", syncAll, { passive: true });
   });
