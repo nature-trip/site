@@ -33,22 +33,38 @@ function initSliderVideoPlayback() {
 
   const ACTIVE_THRESHOLD = 0.55;
 
-  const warmupVideos = () => {
-    const allVideos = sliders.flatMap((slider) => Array.from(slider.querySelectorAll("video")));
-    if (allVideos.length === 0) {
-      return;
-    }
+  const preloadPosters = () => {
+    const posterUrls = new Set();
+    sliders.forEach((slider) => {
+      slider.querySelectorAll("video[poster]").forEach((video) => {
+        const poster = video.getAttribute("poster");
+        if (poster) {
+          posterUrls.add(poster);
+        }
+      });
+    });
+    posterUrls.forEach((url) => {
+      const img = new Image();
+      img.decoding = "async";
+      img.src = url;
+    });
+  };
 
+  const warmupVideos = () => {
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     const isSlowConnection =
       Boolean(connection && connection.saveData) ||
       Boolean(connection && /(^|slow-)?2g/.test(String(connection.effectiveType || "")));
 
-    allVideos.forEach((video) => {
-      video.preload = isSlowConnection ? "metadata" : "auto";
-      if (video.readyState < 2) {
-        video.load();
-      }
+    sliders.forEach((slider) => {
+      const videos = Array.from(slider.querySelectorAll("video"));
+      videos.forEach((video, index) => {
+        const isPriority = index < 2;
+        video.preload = isPriority ? "auto" : isSlowConnection ? "metadata" : "auto";
+        if (video.readyState < 2 && (isPriority || !isSlowConnection)) {
+          video.load();
+        }
+      });
     });
   };
 
@@ -117,13 +133,14 @@ function initSliderVideoPlayback() {
   window.addEventListener("resize", syncAll);
   document.addEventListener("visibilitychange", syncAll);
   window.addEventListener("load", syncAll, { once: true });
-  window.addEventListener(
-    "load",
+  document.addEventListener(
+    "DOMContentLoaded",
     () => {
+      preloadPosters();
       if ("requestIdleCallback" in window) {
-        window.requestIdleCallback(warmupVideos, { timeout: 1500 });
+        window.requestIdleCallback(warmupVideos, { timeout: 1200 });
       } else {
-        window.setTimeout(warmupVideos, 250);
+        window.setTimeout(warmupVideos, 120);
       }
     },
     { once: true },
