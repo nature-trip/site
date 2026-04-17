@@ -51,17 +51,11 @@ function initSliderVideoPlayback() {
   };
 
   const warmupVideos = () => {
-    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-    const isSlowConnection =
-      Boolean(connection && connection.saveData) ||
-      Boolean(connection && /(^|slow-)?2g/.test(String(connection.effectiveType || "")));
-
     sliders.forEach((slider) => {
       const videos = Array.from(slider.querySelectorAll("video"));
-      videos.forEach((video, index) => {
-        const isPriority = index < 2;
-        video.preload = isPriority ? "auto" : isSlowConnection ? "metadata" : "auto";
-        if (video.readyState < 2 && (isPriority || !isSlowConnection)) {
+      videos.forEach((video) => {
+        video.preload = "auto";
+        if (video.readyState < 2) {
           video.load();
         }
       });
